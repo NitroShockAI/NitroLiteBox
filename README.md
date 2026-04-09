@@ -1,6 +1,8 @@
 # NitroLiteBox
 Fast loading simple lightbox with zoom features
+
 === NitroLiteBox ===
+
 Contributors: nitrolitebox
 Tags: lightbox, gallery, images, fullscreen, scrolling lightbox
 Requires at least: 5.5
