@@ -3,7 +3,7 @@ Contributors: nitrolitebox
 Tags: lightbox, gallery, images, fullscreen, scrolling lightbox
 Requires at least: 5.5
 Tested up to: 6.9
-Stable tag: 1.1.2
+Stable tag: 1.1.5
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -12,20 +12,20 @@ A blazing-fast, zero-dependency scrolling lightbox for full-size images. Works w
 
 == Description ==
 
-**NitroLiteBox** gives every linked image on your site an instant full-screen lightbox — no jQuery, no icon fonts, no external requests. Just two tiny files (CSS + JS) that load once and stay out of the way.
+**NitroLiteBox** gives every linked image on your site an instant full-screen lightbox - no jQuery, no icon fonts, no external requests. Just two tiny files (CSS + JS) that load once and stay out of the way.
 
 = Why NitroLiteBox? =
 
-* **Zero dependencies** — pure vanilla JS, nothing extra to load.
-* **Auto-detect** — wraps any `<a href="image.jpg"><img></a>` automatically, exactly as WordPress outputs them.
-* **Oxygen Builder ready** — fires a re-init hook after Oxygen's dynamic render.
-* **Scrolling gallery** — group images by CSS class, `rel`, or `data-nlb-group` and swipe/arrow through them.
-* **Pan & zoom** — scroll-wheel, double-click, pinch-to-zoom, drag-to-pan with pointer-anchored zooming.
-* **Keyboard + touch** — Arrow keys, Escape, and left/right swipe all work out of the box.
+* **Zero dependencies** - pure vanilla JS, nothing extra to load.
+* **Auto-detect** - wraps any `<a href="image.jpg"><img></a>` automatically, exactly as WordPress outputs them.
+* **Oxygen Builder ready** - fires a re-init hook after Oxygen's dynamic render.
+* **Scrolling gallery** - group images by CSS class, `rel`, or `data-nlb-group` and swipe/arrow through them.
+* **Pan & zoom** - scroll-wheel, double-click, pinch-to-zoom, drag-to-pan with pointer-anchored zooming.
+* **Keyboard + touch** - Arrow keys, Escape, and left/right swipe all work out of the box.
 * **Preloads** adjacent images in the background so navigation feels instant.
-* **GPU-only animations** — smooth 60 fps on mobile; respects `prefers-reduced-motion`.
-* **Accessible** — `role="dialog"`, `aria-modal`, focus management, focus-visible ring.
-* **Shortcode** — `[nitrolitebox]` for full control over any image.
+* **GPU-only animations** - smooth 60 fps on mobile; respects `prefers-reduced-motion`.
+* **Accessible** - `role="dialog"`, `aria-modal`, focus management, focus-visible ring.
+* **Shortcode** - `[nitrolitebox]` for full control over any image.
 
 = Works with =
 
@@ -57,7 +57,7 @@ document.dispatchEvent(new CustomEvent('nlb:refresh'));
 
 1. Upload the `nitrolitebox` folder to `/wp-content/plugins/`.
 2. Activate through **Plugins → Installed Plugins**.
-3. That's it — linked images become lightboxes automatically.
+3. That's it - linked images become lightboxes automatically.
 
 For settings, visit **Settings → NitroLiteBox**.
 
@@ -87,11 +87,23 @@ Yes: `NitroLiteBox.open('https://example.com/image.jpg')` or pass an array of ob
 
 == Changelog ==
 
+= 1.1.5 =
+* The lightbox files now load only on pages that contain a lightbox image (in post content, blocks, shortcodes, widgets, or Oxygen elements) instead of on every page.
+* New "Load on every page" setting restores the old behaviour for image links placed outside those areas, such as hard-coded in a theme template. Setting Extra selectors also loads it everywhere. Developers can use the nitrolitebox_force_load filter.
+* Saved settings now apply on the front end. Previously the settings page stored them but the lightbox always used the defaults.
+* Fixed the caption showing as a thin wrapped column beside the image while a large image was still loading. The caption now stays hidden until the image has loaded.
+
+= 1.1.4 =
+* Replaced every em/en dash across the plugin with plain hyphens, including the front-end Oxygen re-init script comment that renders on every Oxygen page (the 1.1.3 note claimed this comment was corrected, but the shipped build still carried the dash) and the update-available admin notice string.
+
+= 1.1.3 =
+* Corrected the Oxygen Builder re-init comment in the plugin output.
+
 = 1.1.2 =
 * Fixed plugin checker: added `/* translators: */` comments above all `esc_html__()` calls with placeholders in `class-updater.php`.
 * Fixed plugin checker: wrapped updater notice `$msg` in `wp_kses_post()`.
 * Fixed plugin checker: wrapped `$banner_url` and `$banner_2x` in `esc_url()` at output point.
-* Fixed Nitroshock footer "Visit Plugin Site" link pointing to wrong URL when multiple Nitroshock plugins are active — renamed banner function to `nitrolitebox_render_nitroshock_banner()` to prevent `function_exists` collision.
+* Fixed Nitroshock footer "Visit Plugin Site" link pointing to wrong URL when multiple Nitroshock plugins are active - renamed banner function to `nitrolitebox_render_nitroshock_banner()` to prevent `function_exists` collision.
 
 = 1.1.0 =
 * Added full pan & zoom -- scroll-wheel, double-click, pinch-to-zoom, drag-to-pan.

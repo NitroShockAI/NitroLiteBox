@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       NitroLiteBox
  * Plugin URI:        https://nitroshock.ai/nitrolitebox/
- * Description:       A blazing-fast, zero-dependency lightbox for full-size images. Works with any WordPress theme or Oxygen Builder. Auto-detects linked images — no setup needed.
- * Version:           1.1.2
+ * Description:       A blazing-fast, zero-dependency lightbox for full-size images. Works with any WordPress theme or Oxygen Builder. Auto-detects linked images - no setup needed.
+ * Version:           1.1.5
  * Requires at least: 5.5
  * Requires PHP:      7.4
  * Author:            Nitroshock
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'NLB_VERSION',     '1.1.2' );
+define( 'NLB_VERSION',     '1.1.5' );
 define( 'NLB_PLUGIN_DIR',  plugin_dir_path( __FILE__ ) );
 define( 'NLB_PLUGIN_URL',  plugin_dir_url( __FILE__ ) );
 
@@ -28,39 +28,129 @@ require_once NLB_PLUGIN_DIR . 'includes/nitroshock-banner.php';
 define( 'NS_BANNER_PLUGIN_URL', NLB_PLUGIN_URL );
 
 /* -----------------------------------------------------------------------
- * Assets — CSS loaded async (non-render-blocking). JS deferred in footer.
+ * Assets - CSS loaded async (non-render-blocking). JS deferred in footer.
+ *
+ * Loaded only on pages that output something the lightbox will handle.
+ * The files are registered up front, then enqueued the moment matching
+ * markup is rendered (post content, blocks, shortcodes, widgets). Oxygen
+ * runs every element it outputs through do_shortcode_tag, so Oxygen-built
+ * pages are covered by the same check. WordPress prints styles and scripts
+ * enqueued after wp_head in the footer, so late enqueueing is safe.
+ *
+ * "Always load" in Settings (or the nitrolitebox_force_load filter) restores
+ * the old load-on-every-page behaviour for markup rendered outside these
+ * paths, e.g. an image link hard-coded in a theme template.
  * ----------------------------------------------------------------------- */
-add_action( 'wp_enqueue_scripts', 'nlb_enqueue_assets' );
-function nlb_enqueue_assets() {
+add_action( 'wp_enqueue_scripts', 'nlb_register_assets' );
+function nlb_register_assets() {
     if ( is_admin() ) {
         return;
     }
 
-    wp_enqueue_style(
+    wp_register_style(
         'nitrolitebox',
         NLB_PLUGIN_URL . 'assets/css/nitrolitebox.css',
         [],
         NLB_VERSION
     );
 
-    wp_enqueue_script(
+    wp_register_script(
         'nitrolitebox',
         NLB_PLUGIN_URL . 'assets/js/nitrolitebox.js',
-        [], // zero dependencies — no jQuery
+        [], // zero dependencies - no jQuery
         NLB_VERSION,
         [ 'strategy' => 'defer', 'in_footer' => true ]
     );
 
-    // Pass user-configurable options to JS
+    // Pass user-configurable options to JS (alwaysLoad is PHP-only).
     $options = nlb_get_options();
+    unset( $options['alwaysLoad'] );
     wp_localize_script( 'nitrolitebox', 'nlbConfig', $options );
+
+    if ( nlb_always_load() ) {
+        nlb_enqueue_assets();
+    }
 }
 
+/**
+ * Whether to load on every front-end page regardless of content.
+ * A custom selector can match anything, so it also forces loading.
+ */
+function nlb_always_load() {
+    $opts   = nlb_get_options();
+    $always = ! empty( $opts['alwaysLoad'] ) || '' !== trim( (string) $opts['selector'] );
+
+    /**
+     * Filter whether NitroLiteBox assets load on every page.
+     *
+     * @param bool $always True to load everywhere.
+     */
+    return (bool) apply_filters( 'nitrolitebox_force_load', $always );
+}
+
+/** Enqueue the registered assets (once). */
+function nlb_enqueue_assets() {
+    static $done = false;
+    if ( $done || ! wp_script_is( 'nitrolitebox', 'registered' ) ) {
+        return;
+    }
+    $done = true;
+    wp_enqueue_style( 'nitrolitebox' );
+    wp_enqueue_script( 'nitrolitebox' );
+}
+
+/**
+ * Does this HTML contain anything the lightbox script would pick up?
+ * Mirrors collectLinks() in nitrolitebox.js: an image-file link wrapping
+ * an <img>, a data-nitrolitebox link, or a group-prefix class.
+ */
+function nlb_html_needs_lightbox( $html ) {
+    if ( ! is_string( $html ) || false === stripos( $html, '<a' ) ) {
+        return false;
+    }
+    if ( false !== stripos( $html, 'data-nitrolitebox' ) ) {
+        return true;
+    }
+    $opts   = nlb_get_options();
+    $prefix = (string) $opts['groupClassPrefix'];
+    if ( '' !== $prefix && false !== strpos( $html, $prefix ) ) {
+        return true;
+    }
+    if ( empty( $opts['autoInit'] ) ) {
+        return false;
+    }
+    // <a ... href="....jpg?x" ...> ... <img  (before the link closes)
+    return (bool) preg_match(
+        '~<a\s[^>]*href\s*=\s*["\']?[^"\'\s>]+\.(?:jpe?g|png|gif|webp|avif|svg|bmp|tiff?)(?:\?[^"\'\s>]*)?["\']?[^>]*>(?:(?!</a>).)*?<img\b~is',
+        $html
+    );
+}
+
+/** Content filter callback: enqueue if the rendered markup needs it. */
+function nlb_detect_in_output( $html ) {
+    static $found = false;
+    if ( ! $found && ! is_admin() && nlb_html_needs_lightbox( $html ) ) {
+        $found = true;
+        nlb_enqueue_assets();
+    }
+    return $html;
+}
+add_filter( 'the_content',         'nlb_detect_in_output', 999 );
+add_filter( 'render_block',        'nlb_detect_in_output', 999 );
+add_filter( 'do_shortcode_tag',    'nlb_detect_in_output', 999 );
+add_filter( 'widget_text_content', 'nlb_detect_in_output', 999 );
+add_filter( 'widget_block_content', 'nlb_detect_in_output', 999 );
+
 /* -----------------------------------------------------------------------
- * Non-render-blocking CSS — rewrite the <link> tag to use rel="preload".
- * The lightbox overlay starts hidden (opacity:0 / pointer-events:none) so
- * there is zero visual impact if the stylesheet arrives after first paint.
- * A <noscript> fallback covers JS-disabled browsers.
+ * Non-render-blocking CSS - rewrite the <link> tag to use rel="preload".
+ * The lightbox overlay is injected by JS and starts hidden (opacity:0 /
+ * pointer-events:none), so there is zero visual impact if the stylesheet
+ * arrives after first paint - and no reflow, since none of these styles
+ * apply to anything in the initial DOM.
+ *
+ * No <noscript> fallback: the lightbox only activates via JS, so with JS
+ * disabled this CSS would style nothing. Loading it for no-JS clients buys
+ * nothing, so the fallback <link> is intentionally omitted.
  * ----------------------------------------------------------------------- */
 add_filter( 'style_loader_tag', 'nlb_async_stylesheet', 10, 2 );
 function nlb_async_stylesheet( $html, $handle ) {
@@ -74,16 +164,15 @@ function nlb_async_stylesheet( $html, $handle ) {
     }
     $href = esc_url( $matches[1] );
 
+    // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- This IS the enqueued stylesheet; the filter only rewrites its tag for async loading.
     return sprintf(
-        '<link rel="preload" href="%1$s" as="style" onload="this.onload=null;this.rel=\'stylesheet\'">' . "\n" .
-        // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- This IS the enqueued stylesheet; the filter rewrites its tag for async loading. The noscript fallback is required for accessibility.
-        '<noscript><link rel="stylesheet" href="%1$s"></noscript>' . "\n",
+        '<link rel="preload" href="%1$s" as="style" onload="this.onload=null;this.rel=\'stylesheet\'">' . "\n",
         $href
     );
 }
 
 /* -----------------------------------------------------------------------
- * Options — sensible defaults, easily filterable.
+ * Options - sensible defaults, easily filterable.
  * ----------------------------------------------------------------------- */
 function nlb_get_options() {
     $defaults = [
@@ -101,7 +190,15 @@ function nlb_get_options() {
         'counterPos'       => 'top',   // 'top' | 'bottom' | 'none'
         'bgColor'          => 'rgba(0,0,0,0.94)',
         'accentColor'      => '#ffffff',
+        'alwaysLoad'       => false,
     ];
+
+    // Saved settings override the defaults (previously the settings page
+    // saved them but the front end never read them back).
+    $saved = get_option( 'nlb_options', [] );
+    if ( is_array( $saved ) ) {
+        $defaults = array_merge( $defaults, $saved );
+    }
 
     /**
      * Filter nitrolitebox config passed to JavaScript.
@@ -112,7 +209,7 @@ function nlb_get_options() {
 }
 
 /* -----------------------------------------------------------------------
- * Oxygen Builder compatibility — re-init after dynamic render.
+ * Oxygen Builder compatibility - re-init after dynamic render.
  * ----------------------------------------------------------------------- */
 add_action( 'wp_footer', 'nlb_oxygen_compat', 99 );
 function nlb_oxygen_compat() {
@@ -121,7 +218,7 @@ function nlb_oxygen_compat() {
     }
     ?>
     <script>
-    /* NitroLiteBox — Oxygen Builder re-init after dynamic render */
+    /* NitroLiteBox - Oxygen Builder re-init after dynamic render */
     document.addEventListener('DOMContentLoaded', function () {
         if (typeof NitroLiteBox !== 'undefined') {
             NitroLiteBox.refresh();
@@ -174,7 +271,7 @@ function nlb_shortcode( $atts ) {
 }
 
 /* -----------------------------------------------------------------------
- * REST endpoint — lets JS fetch attachment caption/alt by URL.
+ * REST endpoint - lets JS fetch attachment caption/alt by URL.
  * ----------------------------------------------------------------------- */
 add_action( 'rest_api_init', 'nlb_register_rest_route' );
 function nlb_register_rest_route() {
@@ -244,6 +341,7 @@ function nlb_sanitize_options( $input ) {
     $clean['counterPos']       = in_array( $input['counterPos'] ?? '', [ 'top', 'bottom', 'none' ] )
                                  ? $input['counterPos'] : 'top';
     $clean['selector']         = sanitize_text_field( $input['selector'] ?? '' );
+    $clean['alwaysLoad']       = ! empty( $input['alwaysLoad'] );
     return $clean;
 }
 
@@ -254,7 +352,7 @@ function nlb_settings_page() {
     $banner_2x  = esc_url( NLB_PLUGIN_URL . 'assets/images/nlb-banner-2x.png' );
     $docs_url   = 'https://nitroshock.ai/docs/nitrolitebox/';
 
-    // Inline SVG icons — monochrome, inherits currentColor.
+    // Inline SVG icons - monochrome, inherits currentColor.
     $icon_detection = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
     $icon_behaviour = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
     $icon_shortcode = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>';
@@ -265,7 +363,7 @@ function nlb_settings_page() {
     /* ── NitroLiteBox admin page ─────────────────────────────────────── */
     #nlb-settings-wrap { max-width: 860px; }
 
-    /* Banner — bleed to edges of .wrap (counters WP's 20px right margin + 2px left) */
+    /* Banner - bleed to edges of .wrap (counters WP's 20px right margin + 2px left) */
     .nlb-banner-wrap {
         display: block;
         line-height: 0;
@@ -436,7 +534,7 @@ function nlb_settings_page() {
             <img
                 src="<?php echo esc_url( $banner_url ); ?>"
                 srcset="<?php echo esc_url( $banner_url ); ?> 1x, <?php echo esc_url( $banner_2x ); ?> 2x"
-                alt="NitroLiteBox — Zero-Dependency Image Lightbox"
+                alt="NitroLiteBox - Zero-Dependency Image Lightbox"
                 width="772" height="250"
             >
         </a>
@@ -474,6 +572,16 @@ function nlb_settings_page() {
                                 <input type="checkbox" name="nlb_options[autoInit]" value="1" <?php checked( $opts['autoInit'] ); ?>>
                                 <?php esc_html_e( 'Automatically lightbox all linked images in content', 'nitrolitebox' ); ?>
                             </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Load on every page', 'nitrolitebox' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="nlb_options[alwaysLoad]" value="1" <?php checked( ! empty( $opts['alwaysLoad'] ) ); ?>>
+                                <?php esc_html_e( 'Always load the lightbox files', 'nitrolitebox' ); ?>
+                            </label>
+                            <p class="description"><?php esc_html_e( 'By default the lightbox loads only on pages whose content, blocks, shortcodes or widgets contain a lightbox image. Tick this if an image link sits somewhere else, such as hard-coded in a theme template. Setting Extra selectors also loads it on every page.', 'nitrolitebox' ); ?></p>
                         </td>
                     </tr>
                     <tr>

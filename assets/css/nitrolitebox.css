@@ -1,0 +1,357 @@
+/*
+ * NitroLiteBox - Stylesheet v1.1.0
+ * Zero external dependencies. All animations use GPU-composited properties.
+ * Scoped entirely to #nlb-* to avoid conflicts with any theme or builder.
+ */
+
+/* -- Overlay ---------------------------------------------------------------- */
+#nlb-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+
+#nlb-overlay.nlb-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* -- Backdrop --------------------------------------------------------------- */
+#nlb-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.94);
+  cursor: zoom-out;
+}
+
+/* -- Stage (contains image) ------------------------------------------------- */
+#nlb-stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: calc(100vw - 120px);
+  max-height: calc(100vh - 80px);
+}
+
+@media (max-width: 600px) {
+  #nlb-stage {
+    max-width: 100vw;
+    max-height: calc(100vh - 120px);
+  }
+}
+
+/* -- Image ------------------------------------------------------------------ */
+#nlb-img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 120px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 3px;
+  box-shadow:
+    0 4px 6px -1px rgba(0,0,0,0.3),
+    0 20px 60px -10px rgba(0,0,0,0.7);
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: scale(0.93);
+  will-change: opacity, transform;
+  cursor: default;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+#nlb-img.nlb-loaded {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Disable entrance zoom animation when zoomIn option is off.
+ * NO !important so inline styles from pan/zoom JS can override. */
+#nlb-overlay:not(.nlb-zoom-enabled) #nlb-img {
+  transform: none;
+}
+
+#nlb-overlay:not(.nlb-zoom-enabled) #nlb-img.nlb-loaded {
+  transform: none;
+}
+
+/* -- Spinner ---------------------------------------------------------------- */
+#nlb-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+#nlb-spinner.nlb-hidden {
+  opacity: 0;
+}
+
+.nlb-spin-ring {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  animation: nlb-spin 0.75s linear infinite;
+}
+
+@keyframes nlb-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* -- Buttons (close / prev / next / zoom) ----------------------------------- */
+#nlb-overlay button {
+  all: unset;
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px) saturate(1.5);
+  -webkit-backdrop-filter: blur(8px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  transition:
+    background   0.18s ease,
+    transform    0.18s ease,
+    border-color 0.18s ease,
+    opacity      0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+#nlb-overlay button:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+#nlb-overlay button:active {
+  transform: scale(0.93);
+}
+
+#nlb-overlay button svg {
+  display: block;
+  pointer-events: none;
+}
+
+/* -- Close button ----------------------------------------------------------- */
+#nlb-overlay #nlb-close {
+  top: 18px;
+  right: 18px;
+  width: 44px;
+  height: 44px;
+}
+
+#nlb-overlay #nlb-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* -- Zoom button ------------------------------------------------------------ */
+#nlb-overlay #nlb-zoom-btn {
+  top: 18px;
+  right: 72px;
+  width: 44px;
+  height: 44px;
+}
+
+#nlb-overlay #nlb-zoom-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+#nlb-overlay #nlb-zoom-btn::after {
+  content: 'Zoom';
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+#nlb-overlay #nlb-zoom-btn:hover::after {
+  opacity: 1;
+}
+
+/* -- Prev / Next ------------------------------------------------------------ */
+#nlb-overlay #nlb-prev,
+#nlb-overlay #nlb-next {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+}
+
+#nlb-overlay #nlb-prev:hover,
+#nlb-overlay #nlb-next:hover {
+  transform: translateY(-50%) scale(1.06);
+}
+
+#nlb-overlay #nlb-prev:active,
+#nlb-overlay #nlb-next:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
+#nlb-overlay #nlb-prev { left: 16px; }
+#nlb-overlay #nlb-next { right: 16px; }
+
+#nlb-overlay #nlb-prev svg,
+#nlb-overlay #nlb-next svg {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 600px) {
+  #nlb-overlay #nlb-prev { left: 8px; }
+  #nlb-overlay #nlb-next { right: 8px; }
+  #nlb-overlay #nlb-prev,
+  #nlb-overlay #nlb-next { width: 44px; height: 44px; }
+}
+
+/* -- Caption ---------------------------------------------------------------- */
+#nlb-caption-wrap {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%);
+  padding: 28px 20px 14px;
+  border-radius: 0 0 3px 3px;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+/* Hide the caption until the image has loaded. Before then the stage has no
+ * width (the img has no intrinsic size yet), so the absolutely positioned
+ * caption collapses into a thin column of wrapped text. */
+#nlb-img:not(.nlb-loaded) ~ #nlb-caption-wrap {
+  visibility: hidden;
+  opacity: 0;
+}
+
+#nlb-caption {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  letter-spacing: 0.01em;
+}
+
+/* -- Counter ---------------------------------------------------------------- */
+#nlb-counter {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+#nlb-overlay.nlb-counter-bottom #nlb-counter {
+  top: auto;
+  bottom: 20px;
+}
+
+#nlb-overlay.nlb-counter-hidden #nlb-counter {
+  display: none !important;
+}
+
+/* -- Zoomed state ----------------------------------------------------------- */
+
+/* Dim and disable prev/next arrows while zoomed */
+#nlb-overlay.nlb-zoomed #nlb-prev,
+#nlb-overlay.nlb-zoomed #nlb-next {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+/* Hide caption and counter while zoomed */
+#nlb-overlay.nlb-zoomed #nlb-caption-wrap {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#nlb-overlay.nlb-zoomed #nlb-counter {
+  opacity: 0;
+}
+
+/* Prevent backdrop click from closing while zoomed */
+#nlb-overlay.nlb-zoomed #nlb-backdrop {
+  cursor: default;
+}
+
+/* Zoom hint text */
+#nlb-zoom-hint {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#nlb-overlay.nlb-zoomed #nlb-zoom-hint {
+  opacity: 1;
+}
+
+/* -- Focus ring (accessibility) --------------------------------------------- */
+#nlb-overlay button:focus-visible {
+  outline: 2px solid rgba(255,255,255,0.8);
+  outline-offset: 2px;
+}
+
+/* -- Reduced motion --------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  #nlb-overlay,
+  #nlb-img,
+  #nlb-overlay button,
+  #nlb-caption-wrap {
+    transition: none !important;
+    animation: none !important;
+  }
+  .nlb-spin-ring {
+    animation: none !important;
+    border-top-color: rgba(255,255,255,0.85);
+  }
+}
